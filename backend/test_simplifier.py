@@ -13,7 +13,11 @@ carbon dioxide to produce glucose and release oxygen.
 
 target_grade = 5
 
-simplified_text = simplify_text(original_text, target_grade)
+result = simplify_text(
+    text=original_text,
+    target_grade=target_grade,
+    max_attempts=3,
+)
 
 print("ORIGINAL TEXT")
 print("-------------")
@@ -23,10 +27,25 @@ print("\nORIGINAL METRICS")
 print("----------------")
 pprint(analyze_readability(original_text))
 
-print("\nSIMPLIFIED TEXT")
-print("---------------")
-print(simplified_text)
+print("\nATTEMPTS")
+print("--------")
 
-print("\nSIMPLIFIED METRICS")
-print("------------------")
-pprint(analyze_readability(simplified_text))
+for attempt in result["attempts"]:
+    print(f"\nAttempt {attempt['attempt']}")
+    print(
+        "Measured grade:",
+        attempt["metrics"]["flesch_kincaid_grade"],
+    )
+    print(attempt["text"])
+
+print("\nBEST RESULT")
+print("-----------")
+print(result["text"])
+
+print("\nBEST RESULT METRICS")
+print("-------------------")
+pprint(result["metrics"])
+
+print("\nTOTAL ATTEMPTS")
+print("--------------")
+print(result["attempt_count"])
