@@ -1,7 +1,7 @@
 from pprint import pprint
 
+from adjuster import adjust_text
 from readability import analyze_readability
-from simplifier import simplify_text
 
 
 original_text = """
@@ -13,7 +13,7 @@ carbon dioxide to produce glucose and release oxygen.
 
 target_grade = 5
 
-result = simplify_text(
+result = adjust_text(
     text=original_text,
     target_grade=target_grade,
     max_attempts=3,
@@ -27,16 +27,23 @@ print("\nORIGINAL METRICS")
 print("----------------")
 pprint(analyze_readability(original_text))
 
+print("\nDIRECTION")
+print("---------")
+print(result["direction"])
+
 print("\nATTEMPTS")
 print("--------")
 
-for attempt in result["attempts"]:
-    print(f"\nAttempt {attempt['attempt']}")
-    print(
-        "Measured grade:",
-        attempt["metrics"]["flesch_kincaid_grade"],
-    )
-    print(attempt["text"])
+if result["attempts"]:
+    for attempt in result["attempts"]:
+        print(f"\nAttempt {attempt['attempt']}")
+        print(
+            "Measured grade:",
+            attempt["metrics"]["flesch_kincaid_grade"],
+        )
+        print(attempt["text"])
+else:
+    print("No rewrite was needed because the text was already near the target.")
 
 print("\nBEST RESULT")
 print("-----------")

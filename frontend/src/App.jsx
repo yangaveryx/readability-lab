@@ -22,42 +22,53 @@ const SAMPLE_TEXTS = [
 ];
 
 const METRIC_CONFIG = {
-  flesch_kincaid_grade: { label: "Grade Level", unit: "", lowerIsBetter: true },
-  syllable_count: { label: "Syllables", unit: "", lowerIsBetter: true },
+  flesch_kincaid_grade: { label: "Grade Level", unit: "" },
+  syllable_count: { label: "Syllables", unit: "" },
   average_sentence_length: {
     label: "Avg. Sentence Length",
     unit: " words",
-    lowerIsBetter: true,
   },
   average_dependency_depth: {
     label: "Avg. Syntax Depth",
     unit: "",
-    lowerIsBetter: true,
   },
   maximum_dependency_depth: {
     label: "Max Syntax Depth",
     unit: "",
-    lowerIsBetter: true,
   },
 };
 
-function DeltaBadge({ original, rewritten, config }) {
-  if (original === undefined || rewritten === undefined) return null;
+function DeltaBadge({ original, rewritten, config, direction }) {
+  if (original === undefined || rewritten === undefined) {
+    return null;
+  }
 
   const diff = Math.round((rewritten - original) * 10) / 10;
-  if (diff === 0) return <span className="delta neutral">No change</span>;
 
-  const isPositiveChange = config.lowerIsBetter ? diff < 0 : diff > 0;
+  if (diff === 0) {
+    return <span className="delta neutral">No change</span>;
+  }
+
+  const movedInExpectedDirection =
+    direction === "simplify"
+      ? diff < 0
+      : direction === "elevate"
+        ? diff > 0
+        : false;
+
   const formattedDiff = diff > 0 ? `+${diff}` : `${diff}`;
 
   return (
-    <span className={`delta ${isPositiveChange ? "improved" : "increased"}`}>
-      {formattedDiff} {config.unit}
+    <span
+      className={`delta ${movedInExpectedDirection ? "improved" : "increased"}`}
+    >
+      {formattedDiff}
+      {config.unit}
     </span>
   );
 }
 
-function Metrics({ originalMetrics, rewrittenMetrics }) {
+function Metrics({ originalMetrics, rewrittenMetrics, direction }) {
   if (!originalMetrics) return null;
 
   return (
@@ -71,7 +82,12 @@ function Metrics({ originalMetrics, rewrittenMetrics }) {
             <div className="metric-header">
               <span className="metric-label">{config.label}</span>
               {rew !== null && (
-                <DeltaBadge original={orig} rewritten={rew} config={config} />
+                <DeltaBadge
+                  original={orig}
+                  rewritten={rew}
+                  config={config}
+                  direction={direction}
+                />
               )}
             </div>
             <div className="metric-values">
@@ -109,11 +125,11 @@ function App() {
   const charCount = text.length;
 
   const GRADE_TIERS = [
-    { level: 3, label: "Simple", desc: "Elementary" },
-    { level: 5, label: "Middle", desc: "Middle School" },
-    { level: 8, label: "Standard", desc: "High School" },
-    { level: 11, label: "Advanced", desc: "College" },
-    { level: 14, label: "Academic", desc: "Post-grad" },
+    { level: 3, label: "Elementary" },
+    { level: 5, label: "Upper Elementary" },
+    { level: 8, label: "Middle School" },
+    { level: 11, label: "High School" },
+    { level: 14, label: "College" },
   ];
 
   async function handleSubmit(event) {
@@ -126,9 +142,11 @@ function App() {
 
     setIsLoading(true);
     setError("");
+    setResult(null);
+    setCopied(false);
 
     try {
-      const response = await fetch(`${API_URL}/api/tune`, {
+      const response = await fetch(`${API_URL}/api/adjust`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -169,6 +187,7 @@ function App() {
     setTargetLevel(sample.level);
     setResult(null);
     setError("");
+    setCopied(false);
   }
 
   return (
@@ -235,7 +254,12 @@ function App() {
             <textarea
               className="editor-textarea"
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(event) => {
+                setText(event.target.value);
+                setResult(null);
+                setError("");
+                setCopied(false);
+              }}
               placeholder="Paste or type here..."
               rows={8}
             />
@@ -265,6 +289,20 @@ function App() {
                     );
                   })}
                 </div>
+                <label htmlFor="target-level" className="field-label">
+                  Target grade: {targetLevel}
+                </label>
+
+                <input
+                  id="target-level"
+                  type="range"
+                  min="1"
+                  max="16"
+                  value={targetLevel}
+                  onChange={(event) =>
+                    setTargetLevel(Number(event.target.value))
+                  }
+                />
               </div>
 
               <button
@@ -289,10 +327,20 @@ function App() {
               <div className="panel-title-group">
                 <span className="panel-title">Tuned Output</span>
                 {result && (
-                  <span className="iteration-badge">
-                    {result.iterations}{" "}
-                    {result.iterations === 1 ? "pass" : "passes"}
-                  </span>
+                  <>
+                    <span className="direction-badge">
+                      {result.direction === "simplify"
+                        ? "Simplified"
+                        : result.direction === "elevate"
+                          ? "Elevated"
+                          : "Already on target"}
+                    </span>
+
+                    <span className="iteration-badge">
+                      {result.iterations}{" "}
+                      {result.iterations === 1 ? "pass" : "passes"}
+                    </span>
+                  </>
                 )}
               </div>
               {result && (
@@ -341,6 +389,7 @@ function App() {
                 <Metrics
                   originalMetrics={result.original_metrics}
                   rewrittenMetrics={result.rewritten_metrics}
+                  direction={result.direction}
                 />
               </div>
             )}

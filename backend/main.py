@@ -2,10 +2,9 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from readability import analyze_readability
-from simplifier import simplify_text
+from adjuster import adjust_text
 
 from fastapi.middleware.cors import CORSMiddleware
-
 
 app = FastAPI()
 
@@ -20,7 +19,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class SimplifyRequest(BaseModel):
+class AdjustRequest(BaseModel):
     text: str = Field(min_length=1)
     target_level: int = Field(ge=1, le=16)
 
@@ -31,14 +30,15 @@ class ReadabilityMetrics(BaseModel):
     average_dependency_depth: float
     maximum_dependency_depth: int
 
-class SimplifyResponse(BaseModel):
+class AdjustResponse(BaseModel):
     original_metrics: ReadabilityMetrics
     rewritten_text: str
     rewritten_metrics: ReadabilityMetrics
     iterations: int
+    direction: str
 
-@app.post("/api/simplify", response_model=SimplifyResponse)
-def simplify(request: SimplifyRequest):
+@app.post("/api/adjust", response_model=AdjustResponse)
+def adjust(request: AdjustRequest):
     if not request.text.strip():
         raise HTTPException(
             status_code=422,
@@ -48,7 +48,7 @@ def simplify(request: SimplifyRequest):
     original_metrics = analyze_readability(request.text)
 
     try:
-        result = simplify_text(
+        result = adjust_text(
             text=request.text,
             target_grade=request.target_level,
         )
@@ -63,4 +63,5 @@ def simplify(request: SimplifyRequest):
         "rewritten_text": result["text"],
         "rewritten_metrics": result["metrics"],
         "iterations": result["attempt_count"],
+        "direction": result["direction"],
     }
