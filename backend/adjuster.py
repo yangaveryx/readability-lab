@@ -1,14 +1,23 @@
 import os
 from dotenv import load_dotenv
 
-from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_ollama import ChatOllama
 
+from pydantic import BaseModel, Field
+
 from readability import analyze_readability
 
 load_dotenv()
+
+class RewriteResult(BaseModel):
+    rewritten_text: str = Field(
+        description=(
+            "Only the adjusted passage, without labels, explanations, "
+            "analysis, bullet points, or commentary."
+        )
+    )
 
 def create_model():
     provider = os.getenv("LLM_PROVIDER", "ollama")
@@ -22,7 +31,7 @@ def create_model():
     raise ValueError(f"Unsupported LLM provider: {provider}")
 
 model = create_model()
-output_parser = StrOutputParser()
+structured_model = model.with_structured_output(RewriteResult)
 
 def get_direction_description(direction: str) -> str:
     if direction == "simplify":
@@ -104,6 +113,12 @@ initial_prompt = ChatPromptTemplate.from_messages(
             - Your entire response must contain only the rewritten passage.
             - Do not include a title, label, introduction, or explanation.
 
+            The requested direction is mandatory:
+            - If the direction is "simplify," make the passage easier.
+            - If the direction is "elevate," make the passage more sophisticated.
+            - Never simplify when the requested direction is "elevate."
+            - Never elevate when the requested direction is "simplify."
+
             Requested direction:
             {direction}
 
@@ -114,8 +129,13 @@ initial_prompt = ChatPromptTemplate.from_messages(
         (
             "human",
             """
-            Adjust the following passage from its current measured grade level of
+            Requested operation: {direction}
+
+            Adjust the passage from its current measured grade level of
             {current_grade} to approximately grade {target_grade}.
+
+            Perform the requested operation exactly. Return one adjusted
+            passage and nothing else.
 
             Original passage:
             {text}
@@ -140,6 +160,12 @@ revision_prompt = ChatPromptTemplate.from_messages(
             - Make a meaningful revision instead of returning the same text.
             - Proofread for grammar, spelling, punctuation, and missing spaces.
             - Return only the revised passage.
+
+            The requested direction is mandatory:
+            - If the direction is "simplify," make the passage easier.
+            - If the direction is "elevate," make the passage more sophisticated.
+            - Never simplify when the requested direction is "elevate."
+            - Never elevate when the requested direction is "simplify."
 
             Requested direction:
             {direction}
@@ -170,24 +196,8 @@ revision_prompt = ChatPromptTemplate.from_messages(
     ]
 )
 
-initial_chain = initial_prompt | model | output_parser
-revision_chain = revision_prompt | model | output_parser
-
-def clean_model_output(text: str) -> str:
-    text = str(text).strip()
-
-    unwanted_prefixes = [
-        "Here is the revised text:",
-        "Here is the rewritten text:",
-        "Revised text:",
-        "Rewritten text:",
-    ]
-
-    for prefix in unwanted_prefixes:
-        if text.lower().startswith(prefix.lower()):
-            return text[len(prefix):].strip()
-
-    return text
+initial_chain = initial_prompt | structured_model
+revision_chain = revision_prompt | structured_model
 
 def adjust_text(
     text: str,
@@ -222,17 +232,17 @@ def adjust_text(
             "direction": "matched",
         }
 
-    current_text = clean_model_output(
-        initial_chain.invoke(
-            {
-                "text": text,
-                "current_grade": original_grade,
-                "target_grade": target_grade,
-                "direction": initial_direction,
-                "direction_instructions": get_direction_instructions(initial_direction, target_grade),
-            }
-        )
+    initial_result = initial_chain.invoke(
+        {
+            "text": text,
+            "current_grade": original_grade,
+            "target_grade": target_grade,
+            "direction": initial_direction,
+            "direction_instructions": get_direction_instructions(initial_direction, target_grade),
+        }
     )
+
+    current_text = initial_result.rewritten_text.strip()
 
     attempts = []
 
@@ -262,21 +272,21 @@ def adjust_text(
             tolerance=tolerance,
         )
 
-        revised_text = clean_model_output(
-            revision_chain.invoke(
-                {
-                    "original_text": text,
-                    "current_text": current_text,
-                    "current_grade": current_grade,
-                    "target_grade": target_grade,
-                    "average_sentence_length": current_metrics["average_sentence_length"],
-                    "maximum_dependency_depth": current_metrics["maximum_dependency_depth"],
-                    "direction": revision_direction,
-                    "direction_description": get_direction_description(revision_direction),
-                    "direction_instructions": get_direction_instructions(revision_direction, target_grade),
-                }
-            )
+        revision_result = revision_chain.invoke(
+            {
+                "original_text": text,
+                "current_text": current_text,
+                "current_grade": current_grade,
+                "target_grade": target_grade,
+                "average_sentence_length": current_metrics["average_sentence_length"],
+                "maximum_dependency_depth": current_metrics["maximum_dependency_depth"],
+                "direction": revision_direction,
+                "direction_description": get_direction_description(revision_direction),
+                "direction_instructions": get_direction_instructions(revision_direction, target_grade),
+            }
         )
+
+        revised_text = revision_result.rewritten_text.strip()
 
         if revised_text == current_text:
             break

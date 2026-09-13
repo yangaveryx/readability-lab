@@ -209,11 +209,11 @@ function App() {
       <main className="container">
         <header className="hero">
           <h1 className="hero-title">
-            Precise <em>readability control</em> for any passage.{" "}
+            Rewrite for the <em>reading level you need.</em>
           </h1>
           <p className="hero-subtitle">
-            Adapt complex passages for broader audiences, or elevate simple
-            prose for academic and technical environments.
+            Simplify complex writing or elevate simple prose while preserving
+            its original meaning.
           </p>
         </header>
 
