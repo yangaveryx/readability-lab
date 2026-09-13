@@ -1,4 +1,5 @@
 import os
+import logging
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +11,8 @@ from adjuster import adjust_text
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+logger = logging.getLogger(__name__)
 
 allowed_origins = [
     "http://localhost:5173",
@@ -66,6 +69,13 @@ def adjust(request: AdjustRequest):
         raise HTTPException(
             status_code=400,
             detail=str(error),
+        ) from error
+    except Exception as error:
+        logger.exception("Text adjustment failed")
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Text adjustment failed: {type(error).__name__}",
         ) from error
 
     return {
