@@ -40,7 +40,7 @@ initial_prompt = ChatPromptTemplate.from_messages(
             - Break complicated sentences into shorter sentences when helpful.
             - Do not add facts, opinions, or claims.
             - Proofread for spelling, grammar, and missing spaces.
-            - Return only the rewritten text.
+            - Return only the rewritten text. Do not include a title, label, introduction, explanation, or phrases.
             """,
         ),
         (
@@ -70,7 +70,7 @@ revision_prompt = ChatPromptTemplate.from_messages(
             - Split sentences instead of removing important information.
             - Check carefully for missing spaces, spelling errors, and grammar errors.
             - Make a meaningful revision rather than returning the current rewrite unchanged.
-            - Return only the revised text.
+            - Return only the revised text. Do not include a title, label, introduction, explanation, or phrases.
             """,
         ),
         (
