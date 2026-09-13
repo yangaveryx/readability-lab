@@ -26,7 +26,7 @@ def create_model():
         return ChatOllama(model="llama3.2", temperature=0,)
 
     if provider == "gemini":
-        return ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0,)
+        return ChatGoogleGenerativeAI(model="gemini-3.5-flash", temperature=1.0,)
 
     raise ValueError(f"Unsupported LLM provider: {provider}")
 
