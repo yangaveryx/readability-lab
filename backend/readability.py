@@ -1,5 +1,13 @@
+from pathlib import Path
+
+import nltk
 import spacy
 import textstat
+
+
+nltk.data.path.append(
+    str(Path(__file__).resolve().parent / "nltk_data")
+)
 
 nlp = spacy.load("en_core_web_sm")
 
